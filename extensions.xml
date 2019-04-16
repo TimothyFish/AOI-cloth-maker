@@ -1,0 +1,25 @@
+<?xml version="1.0" standalone="yes"?>
+
+<extension name="Cloth Maker" version="0.1" >
+  <author>Timothy Fish</author>
+  <date>September 2018</date>
+
+  <plugin class="extending.aoi.clothmaker.ClothMakerPlugin" />
+
+  <description>This plugin adds cloth simulation to Art of Illusion. This plugin provides
+  the capability for an object in the scene to be converted into a cloth object and for 
+  a cloth simulation to be calculated for that object. This simulation will be used during 
+  animation to calculate the distortion of the cloth object. This plugin also provides the
+  capability to convert the distorted cloth to a rigid object that can be manipulated as
+  a non-cloth object. This plugin also adds a Fan scene object which extends the 
+  WindSource class. A WindSource produces a force on a cloth object that is both time
+  and position dependent.</description>
+  <resource name="icons/theme.xml" id="ClothMaker" type="UITheme"/>
+    <comments>This plugin takes the work from the HangingCloth cloth simulator and turns
+    it into a refined tool that can be used within Art of Illusion. </comments>
+
+  <history>
+     <log version="0.1" date="September 2018" author="Timothy Fish" >- Initial Version</log>
+  </history>
+
+</extension>
