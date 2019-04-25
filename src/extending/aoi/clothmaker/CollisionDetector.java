@@ -24,9 +24,11 @@ import artofillusion.Scene;
 import artofillusion.animation.PositionTrack;
 import artofillusion.animation.RotationTrack;
 import artofillusion.animation.Track;
+import artofillusion.animation.VisibilityTrack;
 import artofillusion.math.BoundingBox;
 import artofillusion.math.Mat4;
 import artofillusion.math.Vec3;
+import artofillusion.object.Cube;
 import artofillusion.object.Cylinder;
 import artofillusion.object.Light;
 import artofillusion.object.NullObject;
@@ -216,7 +218,7 @@ public class CollisionDetector {
 			}
 		}
 		for(Track T : nowObj.getTracks()) {
-			if(T instanceof PositionTrack) {
+			if(T instanceof RotationTrack) {
 				T.apply(timeNow);
 				nowOrigin = new Vec3(nowObj.coords.getOrigin());
 			}
@@ -279,6 +281,9 @@ public class CollisionDetector {
 
 		if(nominee.getObject() instanceof Sphere) {
 			ret = findDistanceToEllipsoid(point, nominee, direction, collisionDistance);
+		}
+		else if(nominee.getObject() instanceof Cube) {
+			ret = findDistanceToCube(point, nominee, direction, collisionDistance);
 		}
 		else if(nominee.getObject() instanceof Cylinder && !isInMotion) {
 			// TODO Figure out why findDistanceToCylinder doesn't work when the cylinder is in motion, so we can handle all with special case.
@@ -550,7 +555,56 @@ public class CollisionDetector {
 		ret = lastDistanceToCollision;
 		return ret;
 	}
+	
+	/**
+	 * Find distance point will travel before colliding with the cube
+	 * @param point
+	 * @param nominee
+	 * @param direction
+	 * @param collisionDistance
+	 * @return
+	 */
+	private double findDistanceToCube(Vec3 point, ObjectInfo nominee, Vec3 direction, double collisionDistance) {
+		// TODO Auto-generated method stub
+		Mat4 toLocal = nominee.getCoords().toLocal();
+		
+		Cube localCube = (Cube)nominee.getObject().duplicate();
+		BoundingBox B = localCube.getBounds();
+		double retval = Double.MAX_VALUE;
 
+		Vec3 localPt = new Vec3(toLocal.times(point));
+		Vec3 localDir = new Vec3(toLocal.times(direction));
+		localDir.normalize();
+		
+		Triangle T[] = new Triangle[12];
+		T[0] = new Triangle(new Vec3(B.minx, B.miny, B.minz), new Vec3(B.maxx, B.miny, B.minz), new Vec3(B.minx, B.miny, B.maxz));
+		T[1] = new Triangle(new Vec3(B.maxx, B.miny, B.minz), new Vec3(B.minx, B.miny, B.maxz), new Vec3(B.maxx, B.miny, B.maxz));
+		T[2] = new Triangle(new Vec3(B.minx, B.maxy, B.minz), new Vec3(B.maxx, B.maxy, B.minz), new Vec3(B.minx, B.maxy, B.maxz));
+		T[3] = new Triangle(new Vec3(B.maxx, B.maxy, B.minz), new Vec3(B.minx, B.maxy, B.maxz), new Vec3(B.maxx, B.maxy, B.maxz));
+		T[4] = new Triangle(new Vec3(B.minx, B.miny, B.minz), new Vec3(B.maxx, B.miny, B.minz), new Vec3(B.minx, B.maxy, B.minz));
+		T[5] = new Triangle(new Vec3(B.maxx, B.miny, B.minz), new Vec3(B.minx, B.maxy, B.minz), new Vec3(B.maxx, B.maxy, B.minz));
+		T[6] = new Triangle(new Vec3(B.minx, B.miny, B.maxz), new Vec3(B.maxx, B.miny, B.maxz), new Vec3(B.maxx, B.maxy, B.maxz));
+		T[7] = new Triangle(new Vec3(B.minx, B.miny, B.maxz), new Vec3(B.maxx, B.maxy, B.maxz), new Vec3(B.minx, B.maxy, B.maxz));
+		T[8] = new Triangle(new Vec3(B.maxx, B.miny, B.minz), new Vec3(B.maxx, B.miny, B.maxz), new Vec3(B.maxx, B.maxy, B.maxz));
+		T[9] = new Triangle(new Vec3(B.maxx, B.miny, B.minz), new Vec3(B.maxx, B.maxy, B.minz), new Vec3(B.maxx, B.maxy, B.maxz));
+		T[10] = new Triangle(new Vec3(B.minx, B.miny, B.minz), new Vec3(B.minx, B.miny, B.maxz), new Vec3(B.minx, B.maxy, B.maxz));
+		T[11] = new Triangle(new Vec3(B.minx, B.miny, B.minz), new Vec3(B.minx, B.maxy, B.minz), new Vec3(B.minx, B.maxy, B.maxz));
+		
+		double lastVal = Double.MAX_VALUE;
+		for(int i = 0; i < 12; i++) {
+			
+			double dist = findPointTriangleCollisionDistance(localPt, T[i], localDir);
+			if(dist < retval) {
+				lastVal = dist;
+				lastCollisionPoint = nominee.getCoords().fromLocal().times(localDir.times(dist-collisionDistance).plus(localPt));
+				retval = lastCollisionPoint.distance(point);
+			}
+		}
+		
+		return retval;
+	}
+	
+	
 	/**
 	 * Return true if a collision will occur with an object.
 	 * @param dir
@@ -594,22 +648,23 @@ public class CollisionDetector {
 		for(ObjectInfo I : candidate_objects) {
 			moveVec = objectMovement(I, prevTime, time);
 			for(Track T : I.getTracks()) {
-				if((T instanceof PositionTrack) || (T instanceof RotationTrack)) {
+				if((T instanceof PositionTrack) || (T instanceof RotationTrack) || (T instanceof VisibilityTrack)) {
 					T.apply(time);        
 				}
 			}
+			if(I.isVisible()) {
 
-			Vec3 dynamicDirection = new Vec3(moveVec.times(-1.0));
-			dynamicDirection.normalize();
+				Vec3 dynamicDirection = new Vec3(moveVec.times(-1.0));
+				dynamicDirection.normalize();
 
-			double distanceToCollision = findDistanceToCollisionPoint(newV.plus(moveVec), I, direction, collisionDistance, objectMoved(I, prevTime, time));
-			if( distanceToCollision < distance) {
-				lastCollisionPoint = direction.times(distanceToCollision).plus(newV).plus(moveVec);
-				lastDistanceToCollision = newV.distance(lastCollisionPoint);
+				double distanceToCollision = findDistanceToCollisionPoint(newV.plus(moveVec), I, direction, collisionDistance, objectMoved(I, prevTime, time));
+				if( distanceToCollision < distance) {
+					lastCollisionPoint = direction.times(distanceToCollision).plus(newV).plus(moveVec);
+					lastDistanceToCollision = newV.distance(lastCollisionPoint);
 
-				return true;
-			}      
-
+					return true;
+				}      
+			}
 		}
 		return false;
 	}

@@ -31,6 +31,7 @@ import buoy.widget.BMenuItem;
 public class ClothMenuItemActivator extends Thread {
 
   private BMenuItem theConvertMenuItem;
+  private BMenuItem theCopyToTriMenuItem;
   private BMenuItem theGenerateMenuItem;
   private LayoutWindow theLayout;
   private CollisionDetector theCollisionDetector;
@@ -42,13 +43,18 @@ public class ClothMenuItemActivator extends Thread {
    * @param generateMenuItem Non-null menu item 
    * @param layout non-null layout window
    */
-  public ClothMenuItemActivator(LayoutWindow layout, BMenuItem convertMenuItem, BMenuItem generateMenuItem) {
+  public ClothMenuItemActivator(LayoutWindow layout, 
+  		                          BMenuItem convertMenuItem, 
+  		                          BMenuItem copyToTriMenuItem,
+  		                          BMenuItem generateMenuItem) {
     theConvertMenuItem = convertMenuItem;
+    theCopyToTriMenuItem = copyToTriMenuItem;
     theGenerateMenuItem = generateMenuItem;
     theLayout = layout;
     theCollisionDetector = new CollisionDetector(layout.getScene());
 
     theConvertMenuItem.setEnabled(false);
+    theCopyToTriMenuItem.setEnabled(false);
     theGenerateMenuItem.setEnabled(false);
   }
 
@@ -57,7 +63,8 @@ public class ClothMenuItemActivator extends Thread {
    */
   @Override
   public void run() {
-    while((theConvertMenuItem != null || theGenerateMenuItem != null) && theLayout != null){ // do while menu item exists
+    while((theConvertMenuItem != null || theCopyToTriMenuItem != null || 
+    		theGenerateMenuItem != null) && theLayout != null){ // do while menu item exists
       // Check for object selection
       if(theGenerateMenuItem != null) {
         if(oneClothObjectSelected()){
@@ -67,6 +74,15 @@ public class ClothMenuItemActivator extends Thread {
           theGenerateMenuItem.setEnabled(false);        
         }
 
+      }
+      
+      if(theCopyToTriMenuItem != null) {
+      	if(oneClothObjectSelected()) {
+      		theCopyToTriMenuItem.setEnabled(true);
+      	}
+      	else {
+      		theCopyToTriMenuItem.setEnabled(false);
+      	}
       }
 
       if(theConvertMenuItem != null) {

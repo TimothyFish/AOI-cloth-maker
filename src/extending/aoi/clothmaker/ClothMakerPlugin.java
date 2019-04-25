@@ -61,7 +61,7 @@ public class ClothMakerPlugin implements Plugin {
   public static final boolean DEFAULT_SELF_COLLISION = true;
   public static final boolean DEFAULT_FLOOR_COLLISION = false;
   public static final double DEFAULT_WIND_MAGNITUDE = 0.02;
-  public static final int DEFAULT_SUBFRAMES = 10;
+  public static final int DEFAULT_SUBFRAMES = 4;
   private LayoutWindow layout;
   private ToolPalette toolPalette;
   private CreateFanTool theFanTool;
@@ -71,6 +71,7 @@ public class ClothMakerPlugin implements Plugin {
   private double dampingConstant;
   private double collisionDistance;
   private int counter;
+  private int triMeshCounter;
 
   /**
    * Constructor
@@ -83,6 +84,7 @@ public class ClothMakerPlugin implements Plugin {
     dampingConstant = DEFAULT_DAMPING_CONST;
     collisionDistance = DEFAULT_COLLISION_DISTANCE;
     counter = 1;
+    triMeshCounter = 1;
   }
 
   @Override
@@ -116,8 +118,11 @@ public class ClothMakerPlugin implements Plugin {
 
       BMenuItem menuItem2 = Translate.menuItem("Generate Cloth Simulation...", this, "generateClothSimulationMenuAction");
       objectMenu.add(menuItem2, posConvertToActor+1);
+      
+      BMenuItem menuItem3 = Translate.menuItem("Duplicate Cloth as TriangleMesh", this, "dupClothTriMeshMenuAction");
+      objectMenu.add(menuItem3, posConvertToActor+2);
 
-      new ClothMenuItemActivator(layout, menuItem1, menuItem2).start();
+      new ClothMenuItemActivator(layout, menuItem1, menuItem2, menuItem3).start();
     }
 
   }
@@ -164,7 +169,7 @@ public class ClothMakerPlugin implements Plugin {
     layout.updateMenus();
 
   }
-
+  
   @SuppressWarnings("unused")
   private void generateClothSimulationMenuAction(){
     Collection<ObjectInfo> sel = layout.getSelectedObjects();
@@ -183,6 +188,32 @@ public class ClothMakerPlugin implements Plugin {
       obj.getEditor().setVisible(true);
     }
 
+  }
+  
+  @SuppressWarnings("unused")
+  private void dupClothTriMeshMenuAction() {
+		
+		
+    Collection<ObjectInfo> sel = layout.getSelectedObjects();
+    ObjectInfo info;
+
+    if (sel.size() != 1)
+      return;
+    info = (ObjectInfo) sel.toArray()[0];
+    if (info.getObject() instanceof Cloth) {
+    	Object3D distObj = info.getDistortedObject(0.01);
+    	
+    	Object3D mesh = distObj.convertToTriangleMesh(0.01).duplicate();
+   	  mesh.setMaterial(distObj.getMaterial(), distObj.getMaterialMapping());
+   	  mesh.setTexture(distObj.getTexture(), distObj.getTextureMapping());
+    	
+     	layout.addObject(mesh,
+     			             info.getCoords().duplicate(),
+     			             "TriMesh "+triMeshCounter++,
+     			             new UndoRecord(layout, false));
+      layout.updateImage();
+      layout.updateMenus();
+    }
   }
 
 }

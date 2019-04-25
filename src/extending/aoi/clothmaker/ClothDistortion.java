@@ -75,6 +75,8 @@ public class ClothDistortion extends Distortion {
   private boolean selfCollision;
   // True if cloth should be prevented from dropping lower than 0
   private boolean floorCollision;
+  // weight of a vertex
+	private double vertex_mass;
 
   /**
    * Constructor
@@ -93,7 +95,7 @@ public class ClothDistortion extends Distortion {
    * @param scene
    */
   public ClothDistortion(ObjectInfo info, Vector<SimFrame> storedMeshes, SimFrame prevDrapeMesh, double time, double fps, double gravity, int gravityAxis, 
-      double spring_constant, double damping_constant, double collision_distance, boolean selfCollision, boolean floorCollision, 
+      double spring_constant, double damping_constant, double collision_distance, double vertex_mass, boolean selfCollision, boolean floorCollision, 
       Scene scene)  {
     this.info = info;
     this.myStoredFrames = storedMeshes;
@@ -105,6 +107,7 @@ public class ClothDistortion extends Distortion {
     this.spring_constant = spring_constant;
     this.damping_constant = damping_constant;
     this.collision_distance = collision_distance;
+    this.vertex_mass = vertex_mass;
     this.selfCollision = selfCollision;
     this.floorCollision = floorCollision;
     this.scene = scene;
@@ -130,7 +133,7 @@ public class ClothDistortion extends Distortion {
   @Override
   public Distortion duplicate() {
     ClothDistortion d = new ClothDistortion(info, myStoredFrames, myPrevDrapeMesh, time, fps, gravity, gravityAxis, 
-        spring_constant, damping_constant, collision_distance, 
+        spring_constant, damping_constant, collision_distance, vertex_mass,
         selfCollision, floorCollision, scene);
     if (previous != null)
       d.previous = previous.duplicate();
@@ -232,7 +235,7 @@ public class ClothDistortion extends Distortion {
       Mass curMass = retObj.getMasses()[pt];
       double t = time;                      // time step
       Vec3 p = new Vec3(curMass.getPosition()); // our point
-      double m = curMass.getWeight(); // initial mass
+      double m = vertex_mass;
       Vec3 u = new Vec3(V[pt]); // current velocity of the mass
       Vec3 F = g.times(m).minus(u.times(c)); // F is force on mass F = gravity * m - c * u
 
@@ -243,7 +246,13 @@ public class ClothDistortion extends Distortion {
       	}
       	Fan theFan = (Fan)fanInfo.getObject();
       	Vec3 fanPt = fanInfo.coords.toLocal().times(p);
-      	F = F.plus(fanInfo.getCoords().getZDirection().times(theFan.getForce(fanPt).length()));
+
+      	Vec3 A = theFan.getForce(fanPt, retObj.getNormals()[pt]);
+      	Vec3 B = fanInfo.getCoords().getUpDirection();
+      	Vec3 forceVector = new Vec3(A.x*B.x, A.y*B.y, A.z*B.z); 
+      	
+      	F = F.plus(forceVector);
+      	
       }
       
       boolean fixed_node = true;
@@ -282,7 +291,7 @@ public class ClothDistortion extends Distortion {
       Vec3 v = u.plus(a.times(t));
 
       // Constrain the absolute value of the displacement per step
-      double clamp_value = 0.0025*60.0/fps;
+      double clamp_value = 0.0045;
       s = clamp(s, clamp_value);
       Vec3 ps = p.plus(s);
 
@@ -415,21 +424,23 @@ public class ClothDistortion extends Distortion {
     return prevFrame;
 
   }
-
+  
   /**
-   * Prevents s from being too long by returning a Vec3 with the same direction
-   * as s buth with a length no greater than clampValue.
+   * Prevents s from being too long by returning a Vec3 with any values
+   * that are too long dropped to within the box.
    * @param s
    * @param clampValue
    * @return
    */
   private Vec3 clamp(Vec3 s, double clampValue) {
     Vec3 ret = new Vec3(s);
-
-    if(Math.abs(s.length()) > clampValue) {
-      ret.normalize();
-      ret = ret.times(clampValue);
-    }
+    
+    ret.x = (ret.x > clampValue)?clampValue:ret.x;
+    ret.y = (ret.y > clampValue)?clampValue:ret.y;
+    ret.z = (ret.z > clampValue)?clampValue:ret.z;
+    ret.x = (ret.x < -clampValue)?-clampValue:ret.x;
+    ret.y = (ret.y < -clampValue)?-clampValue:ret.y;
+    ret.z = (ret.z < -clampValue)?-clampValue:ret.z;
 
     return ret;
   }

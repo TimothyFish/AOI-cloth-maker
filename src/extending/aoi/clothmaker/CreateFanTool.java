@@ -86,9 +86,14 @@ public class CreateFanTool extends EditingTool {
     clickPoint = e.getPoint();
 
     UndoRecord undo = new UndoRecord(theWindow, false);
-    // Create the Tracker
+    // Create the Fan with Z pointing up and Y pointing in Z direction
     Scene theScene = ((LayoutWindow) theWindow).getScene();
-    objInfo = new ObjectInfo(new Fan(theScene, Fan.DEFAULT_WIND_FORCE, Fan.DEFAULT_WIND_FALLOFF), new CoordinateSystem(), "Fan "+counter);
+    objInfo = new ObjectInfo(
+    		          new Fan(theScene, 
+    		          		    Fan.DEFAULT_WIND_FORCE, 
+    		          		    Fan.DEFAULT_WIND_FALLOFF), 
+    		          new CoordinateSystem(new Vec3(0.0, 0.0, 0.0), new Vec3(0.0, 1.0, 0.0), new Vec3(0.0, 0.0, 1.0)), 
+    		          "Fan "+counter);
 
     counter++;
     objInfo.addTrack(new PositionTrack(objInfo), 0);

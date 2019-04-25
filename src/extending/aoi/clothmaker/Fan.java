@@ -41,7 +41,7 @@ import buoy.widget.WindowWidget;
  *
  */
 public class Fan extends Object3D {
-  static final double DEFAULT_WIND_FORCE = 1.0;
+  static final double DEFAULT_WIND_FORCE = 0.25;
   static final double DEFAULT_WIND_FALLOFF = 10.0;
   private static BoundingBox bounds = new BoundingBox(-0.25, 0.25, -0.25, 0.25, -0.25, 0.25);
   private static WireframeMesh mesh;
@@ -50,6 +50,7 @@ public class Fan extends Object3D {
   private Scene theScene = null;
   private double magnitude = DEFAULT_WIND_FORCE;
   private double falloff = DEFAULT_WIND_FALLOFF;
+  private java.util.Random rand;
 
   static
   {
@@ -62,11 +63,11 @@ public class Fan extends Object3D {
     from = new int [14];
     to = new int [14];
     vert[0] = new Vec3(0.0, 0.0, 0.0);
-    vert[1] = new Vec3(0.0, 0.0, r);
-    vert[2] = new Vec3(0.0, r*0.1, r*0.5);
-    vert[3] = new Vec3(0.0, -r*0.1, r*0.5);
-    vert[4] = new Vec3(r*0.1, 0.0, r*0.5);
-    vert[5] = new Vec3(-r*0.1, 0.0, r*0.5);
+    vert[1] = new Vec3(0.0, r, 0.0);
+    vert[2] = new Vec3(0.0, r*0.5, r*0.1);
+    vert[3] = new Vec3(0.0, r*0.5, -r*0.1);
+    vert[4] = new Vec3(r*0.1, r*0.5, 0.0);
+    vert[5] = new Vec3(-r*0.1, r*0.5, 0.0);
 
     from[0] = 0;
     to[0] = 1;
@@ -80,12 +81,13 @@ public class Fan extends Object3D {
     from[4] = 1;
     to[4] = 5;
 
-    vert[6] = new Vec3(-r*0.37, r, 0.0);
-    vert[7] = new Vec3( r*0.37, r, 0.0);
+    vert[6] = new Vec3(-r*0.37, 0.0, r);
+    vert[7] = new Vec3( r*0.37, 0.0, r);
     vert[8] = new Vec3(-r*1.066, 0.0, 0.0);
-    vert[9] = new Vec3(-r*0.814, -r*0.69, 0.0);
+    vert[9] = new Vec3(-r*0.814, 0.0, -r*0.69);
     vert[10] = new Vec3(r*1.066, 0.0, 0.0);
-    vert[11] = new Vec3(r*0.814, -r*0.69, 0.0);
+    vert[11] = new Vec3(r*0.814, 0.0, -r*0.69);
+
     from[5] = 0;
     to[5] = 7;
     from[6] = 7;
@@ -120,6 +122,7 @@ public class Fan extends Object3D {
     this.theScene  = theScene;
     this.magnitude = magnitude;
     this.falloff = falloff;
+    this.rand = new java.util.Random();
   }
 
   /**
@@ -169,7 +172,7 @@ public class Fan extends Object3D {
   }
 
   /**
-   * Writes the Tracker to the file.
+   * Writes the Fan to the file.
    * @param out
    * @param theScene
    * @throws IOException
@@ -209,16 +212,20 @@ public class Fan extends Object3D {
    * Given a position relative to the fan, returns the force vector produced by the
    * wind from the fan at that point.
    * @param point
+   * @param posNormal
    * @return
    */
-  public Vec3 getForce(Vec3 position) {
-    Vec3 force = new Vec3(0.0, 0.0, 0.0);
+  public Vec3 getForce(Vec3 position, Vec3 posNormal) {
+    Vec3 force = new Vec3(0.0, rand.nextDouble()*10.0, rand.nextDouble()*1.0);
+    force.normalize();
     double dist = position.length();
-    double F = magnitude-(dist/falloff);
+    double F = magnitude*(1-(dist/falloff));
 
-    if(F > 0) {
-      force.set(0.0, 0.0, F);
+    if(F < 0) {
+    	F = 0;
     }
+    force = force.times(F);
+    
     return force;
 
   }

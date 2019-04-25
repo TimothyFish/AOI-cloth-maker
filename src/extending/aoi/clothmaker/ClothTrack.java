@@ -115,7 +115,7 @@ public class ClothTrack extends Track {
 
   @Override
   public void apply(double time) {
-    clothInfo.addDistortion(new ClothDistortion(clothInfo, storedFrames, prevDrapeFrame, time, tfps, gravity, gravityAxis, spring_constant, damping_constant, collision_distance, selfCollision, floorCollision, scene));  
+    clothInfo.addDistortion(new ClothDistortion(clothInfo, storedFrames, prevDrapeFrame, time, tfps, gravity, gravityAxis, spring_constant, damping_constant, collision_distance, vertex_mass, selfCollision, floorCollision, scene));  
 
   }
 
@@ -227,7 +227,7 @@ public class ClothTrack extends Track {
    */
   public SimFrame simulateCloth(int i) {
     SimFrame frame = new SimFrame(i, (Cloth) clothInfo.getObject());
-    ClothDistortion distort = new ClothDistortion(clothInfo, storedFrames, prevDrapeFrame, (double)(i) / tfps, tfps, gravity, gravityAxis, spring_constant, damping_constant, collision_distance, selfCollision, floorCollision, scene);
+    ClothDistortion distort = new ClothDistortion(clothInfo, storedFrames, prevDrapeFrame, (double)(i) / tfps, tfps, gravity, gravityAxis, spring_constant, damping_constant, collision_distance, vertex_mass, selfCollision, floorCollision, scene);
     frame.M = distort.transform(frame.M, frame.frameNumber);
 
     return frame;
