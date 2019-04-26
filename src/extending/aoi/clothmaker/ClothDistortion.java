@@ -336,7 +336,7 @@ public class ClothDistortion extends Distortion {
           P[pt].x = ps.x;
           P[pt].y = ps.y;
           P[pt].z = ps.z;
-          V[pt] = v;
+          V[pt] = v.times(0.0);
         }
       }
 
