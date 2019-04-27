@@ -226,6 +226,8 @@ public class Fan extends Object3D {
     }
     force = force.times(F);
     
+    force = new Vec3(0.0, F, 0); // TODO REMOVE
+    
     return force;
 
   }

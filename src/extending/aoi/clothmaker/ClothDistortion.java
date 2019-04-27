@@ -247,9 +247,10 @@ public class ClothDistortion extends Distortion {
       	Fan theFan = (Fan)fanInfo.getObject();
       	Vec3 fanPt = fanInfo.coords.toLocal().times(p);
 
-      	Vec3 A = theFan.getForce(fanPt, retObj.getNormals()[pt]);
-      	Vec3 B = fanInfo.getCoords().getUpDirection();
-      	Vec3 forceVector = new Vec3(A.x*B.x, A.y*B.y, A.z*B.z); 
+      	Vec3 A = theFan.getForce(fanPt, fanInfo.coords.toLocal().times(retObj.getNormals()[pt]));
+      	Vec3 forceVector = fanInfo.coords.fromLocal().times(A);
+      	double magnitude = forceVector.length();
+        forceVector = fanInfo.getCoords().getUpDirection().times(magnitude);
       	
       	F = F.plus(forceVector);
       	
