@@ -216,7 +216,7 @@ public class Fan extends Object3D {
    * @return
    */
   public Vec3 getForce(Vec3 position, Vec3 posNormal) {
-    Vec3 force = new Vec3(0.0, rand.nextDouble()*10.0, rand.nextDouble()*1.0);
+  	Vec3 force = new Vec3(0.0, 1.0, 0.0);
     force.normalize();
     double dist = position.length();
     double F = magnitude*(1-(dist/falloff));
@@ -224,9 +224,7 @@ public class Fan extends Object3D {
     if(F < 0) {
     	F = 0;
     }
-    force = force.times(F);
-    
-    force = new Vec3(0.0, F, 0); // TODO REMOVE
+    force = force.times(F);   
     
     return force;
 
@@ -274,4 +272,14 @@ public class Fan extends Object3D {
     magnitude = magnitudeField.getValue();
     falloff = falloffField.getValue();
   }
+
+  /*** Provide some random values for direction of the wind.
+   * 
+   * @return a vector to be added to the direction vector, the normal taken and then 
+   * the magnitude multiplied against it. 
+   */
+	public Vec3 getWindDelta() {
+		double randConst = magnitude*0.03;
+    return new Vec3((rand.nextDouble()-0.5)*randConst, (rand.nextDouble()-0.5)*randConst, (rand.nextDouble()-0.5)*randConst);
+	}
 }
