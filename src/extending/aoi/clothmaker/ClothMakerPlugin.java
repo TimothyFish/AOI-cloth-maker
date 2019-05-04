@@ -70,7 +70,6 @@ public class ClothMakerPlugin implements Plugin {
   private double springConstant;
   private double dampingConstant;
   private double collisionDistance;
-  private int counter;
   private int triMeshCounter;
 
   /**
@@ -83,7 +82,6 @@ public class ClothMakerPlugin implements Plugin {
     springConstant = DEFAULT_SPRING_CONST;
     dampingConstant = DEFAULT_DAMPING_CONST;
     collisionDistance = DEFAULT_COLLISION_DISTANCE;
-    counter = 1;
     triMeshCounter = 1;
   }
 
@@ -155,11 +153,11 @@ public class ClothMakerPlugin implements Plugin {
     ObjectInfo C = new ObjectInfo(cloth, new CoordinateSystem(), info.getName());
     C.coords.setOrigin(info.coords.getOrigin());
     C.coords.setOrientation(info.coords.getZDirection(), info.coords.getUpDirection());
-    counter++;
-
     layout.setUndoRecord(new UndoRecord(layout, false, UndoRecord.COPY_OBJECT_INFO, new Object [] {info, info.duplicate()}));
 
-    info.getParent().addChild(C, 0);
+    if(info.getParent() != null) {
+        info.getParent().addChild(C, 0);
+    }
     layout.addObject(C, new UndoRecord(layout, false));
 
     layout.removeObject(layout.getScene().indexOf(info), new UndoRecord(layout, false));
@@ -214,7 +212,9 @@ public class ClothMakerPlugin implements Plugin {
    	  ObjectInfo meshInfo = new ObjectInfo(mesh, 
    	  		                                 info.getCoords().duplicate(), 
    	  		                                 "TriMesh "+triMeshCounter++);
-   	  info.getParent().addChild(meshInfo, 0);
+      if(info.getParent() != null) {
+        info.getParent().addChild(meshInfo, 0);
+      }
    	  layout.addObject(meshInfo, new UndoRecord(layout, false));
 
      	

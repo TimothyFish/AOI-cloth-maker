@@ -590,12 +590,10 @@ public class CollisionDetector {
 		T[10] = new Triangle(new Vec3(B.minx, B.miny, B.minz), new Vec3(B.minx, B.miny, B.maxz), new Vec3(B.minx, B.maxy, B.maxz));
 		T[11] = new Triangle(new Vec3(B.minx, B.miny, B.minz), new Vec3(B.minx, B.maxy, B.minz), new Vec3(B.minx, B.maxy, B.maxz));
 		
-		double lastVal = Double.MAX_VALUE;
 		for(int i = 0; i < 12; i++) {
 			
 			double dist = findPointTriangleCollisionDistance(localPt, T[i], localDir);
 			if(dist < retval) {
-				lastVal = dist;
 				lastCollisionPoint = nominee.getCoords().fromLocal().times(localDir.times(dist-collisionDistance).plus(localPt));
 				retval = lastCollisionPoint.distance(point);
 			}
