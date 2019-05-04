@@ -152,15 +152,14 @@ public class ClothMakerPlugin implements Plugin {
     massDistance = massDistField.getValue();
 
     Cloth cloth = new Cloth(info, meshTolerance, massDistance, springConstant, dampingConstant, collisionDistance);
-    ObjectInfo C = new ObjectInfo(cloth, new CoordinateSystem(), info.getName()+" (Cloth "+counter+")");
+    ObjectInfo C = new ObjectInfo(cloth, new CoordinateSystem(), info.getName());
     C.coords.setOrigin(info.coords.getOrigin());
     C.coords.setOrientation(info.coords.getZDirection(), info.coords.getUpDirection());
     counter++;
 
     layout.setUndoRecord(new UndoRecord(layout, false, UndoRecord.COPY_OBJECT_INFO, new Object [] {info, info.duplicate()}));
 
-    ObjectInfo parent = info.getParent();
-    parent.addChild(C, 0);
+    info.getParent().addChild(C, 0);
     layout.addObject(C, new UndoRecord(layout, false));
 
     layout.removeObject(layout.getScene().indexOf(info), new UndoRecord(layout, false));
@@ -211,10 +210,15 @@ public class ClothMakerPlugin implements Plugin {
    	  mesh.setMaterial(distObj.getMaterial(), distObj.getMaterialMapping());
    	  mesh.setTexture(distObj.getTexture(), distObj.getTextureMapping());
     	
-     	layout.addObject(mesh,
-     			             info.getCoords().duplicate(),
-     			             "TriMesh "+triMeshCounter++,
-     			             new UndoRecord(layout, false));
+   	  
+   	  ObjectInfo meshInfo = new ObjectInfo(mesh, 
+   	  		                                 info.getCoords().duplicate(), 
+   	  		                                 "TriMesh "+triMeshCounter++);
+   	  info.getParent().addChild(meshInfo, 0);
+   	  layout.addObject(meshInfo, new UndoRecord(layout, false));
+
+     	
+     	layout.rebuildItemList();
       layout.updateImage();
       layout.updateMenus();
     }
