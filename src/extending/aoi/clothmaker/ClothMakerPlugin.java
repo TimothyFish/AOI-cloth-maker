@@ -159,18 +159,22 @@ public class ClothMakerPlugin implements Plugin {
 
     layout.setUndoRecord(new UndoRecord(layout, false, UndoRecord.COPY_OBJECT_INFO, new Object [] {info, info.duplicate()}));
 
+    ObjectInfo parent = info.getParent();
+    parent.addChild(C, 0);
     layout.addObject(C, new UndoRecord(layout, false));
 
     layout.removeObject(layout.getScene().indexOf(info), new UndoRecord(layout, false));
     layout.setSelection(layout.getScene().indexOf(C));
     Score theScore = layout.getScore();
     theScore.addTrack(layout.getSelectedObjects().toArray(), ClothTrack.class, new Object [] {layout.getScene()}, true);
+    
+    layout.rebuildItemList();
     layout.updateImage();
     layout.updateMenus();
 
   }
   
-  @SuppressWarnings("unused")
+	@SuppressWarnings("unused")
   private void generateClothSimulationMenuAction(){
     Collection<ObjectInfo> sel = layout.getSelectedObjects();
     Object3D mesh = null;
