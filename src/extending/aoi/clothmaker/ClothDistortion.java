@@ -19,6 +19,7 @@ package extending.aoi.clothmaker;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Set;
 import java.util.Vector;
 
 import artofillusion.Scene;
@@ -29,6 +30,8 @@ import artofillusion.math.Vec3;
 import artofillusion.object.Mesh;
 import artofillusion.object.Object3D;
 import artofillusion.object.ObjectInfo;
+import artofillusion.object.TriangleMesh;
+import artofillusion.object.TriangleMesh.Face;
 
 /**
  * This class manipulates the vertices of a Cloth such that movement of the cloth
@@ -173,6 +176,9 @@ public class ClothDistortion extends Distortion {
    * @return
    */
   public Cloth transform(Cloth obj, int frame) {
+  	if(frame < 10000)
+  	  return blenderTransform(obj, frame);
+  	
     CollisionDetector CD = new CollisionDetector(scene);
     Mat4 fromLocal = info.getCoords().fromLocal();
     Mat4 toLocal = info.getCoords().toLocal();
@@ -311,13 +317,12 @@ public class ClothDistortion extends Distortion {
       maxPoint.normalize();
       maxPoint = maxPoint.times(collision_distance).plus(P[pt]);
 
-      Collection<ObjectInfo> candidates = CD.findCandidateObjects(info, new BoundingBox(maxPoint, prevSF.M.getMasses()[pt].getPosition()), time, collision_distance, 1.0/fps);
-
-
+      Collection<ObjectInfo> candidates;
 
       Vec3 prev = prevSF.M.getTriangleMesh().getVertexPositions()[pt];
 
       candidates = CD.findCandidateObjects(info, new BoundingBox(maxPoint, prevSF.M.getMasses()[pt].getPosition()), time/ClothSimEditorWindow.subFrames, collision_distance, 1.0/(fps/ClothSimEditorWindow.subFrames));
+            
       if(CD.detectObjectCollision(prev, P[pt], candidates, time/ClothSimEditorWindow.subFrames, collision_distance, collision_distance))
       {
       	ps = CD.getLastCollisionPoint();
@@ -365,7 +370,240 @@ public class ClothDistortion extends Distortion {
 
     return retObj;
   }
+  
+  /**
+   * Calculates where the vertices should be at the current time.
+   * This is the primary function of the simulation.
+   * @param obj
+   * @param frame
+   * @return
+   */
+  public Cloth blenderTransform(Cloth obj, int frame) {
+    CollisionDetector CD = new CollisionDetector(scene);
+    Mat4 fromLocal = info.getCoords().fromLocal();
+    Mat4 toLocal = info.getCoords().toLocal();
 
+    if (previous != null)
+      obj = (Cloth)previous.transform(obj);
+
+    Cloth retObj = (Cloth) obj.duplicate();
+    Vec3 positions[] = retObj.getVertexPositions().clone();
+    for(int n = 0; n < positions.length; n++) {
+      positions[n] = fromLocal.times(positions[n]);  
+    }
+
+    retObj.setVertexPositions(positions);
+
+    SimFrame prevSF = load_prev_mesh(frame);
+    if(prevSF == null) {
+      prevSF = new SimFrame(frame, retObj);
+    }
+
+    final int POINTS_TOTAL = retObj.getVertexPositions().length;
+
+    Vec3 P[] = new Vec3[POINTS_TOTAL];
+    double W[] = new double[POINTS_TOTAL];
+    Vec3 V[] = new Vec3[POINTS_TOTAL];
+
+    for(int i = 0; i < POINTS_TOTAL; i++) {
+      P[i] = prevSF.M.getMasses()[i].getPosition();
+      W[i] = prevSF.M.getMasses()[i].getWeight();
+      V[i] = prevSF.M.getMasses()[i].getVelocity();
+    }
+
+    Vec3 newvert[] = new Vec3[POINTS_TOTAL];
+
+    Vec3 g; // gravity
+    switch(gravityAxis) {
+    case X_AXIS:
+      g = new Vec3(gravity, 0.0, 0.0);
+      break;
+    case Y_AXIS:
+    default:
+      g = new Vec3(0.0, gravity, 0.0);
+      break;
+    case Z_AXIS:
+      g = new Vec3(0.0, 0.0, gravity);
+      break;
+    }
+    double k = spring_constant; 
+    double c = damping_constant;
+
+    ArrayList<ObjectInfo> fans = new ArrayList<ObjectInfo>();
+
+    for(ObjectInfo candidate : scene.getAllObjects()){
+      if(candidate.isVisible() && (candidate.getObject() instanceof Fan)) {
+        fans.add(candidate);
+      }
+    }
+
+    for(int pt = 0; pt < retObj.getMasses().length; pt++) {
+      Mass curMass = retObj.getMasses()[pt];
+      double t = time;                      // time step
+      Vec3 p = new Vec3(curMass.getPosition()); // our point
+      double m = vertex_mass;
+      Vec3 u = new Vec3(V[pt]); // current velocity of the mass
+      Vec3 F = g.times(m).minus(u.times(c)); // F is force on mass F = gravity * m - c * u
+
+      // Add wind forces
+      for(ObjectInfo fanInfo : fans) {
+      	for(int i = 0; i < fanInfo.getTracks().length; i++) {
+      		fanInfo.getTracks()[i].apply(time);
+      	}
+      	Fan theFan = (Fan)fanInfo.getObject();
+      	Vec3 fanPt = fanInfo.coords.toLocal().times(p);
+
+      	Vec3 A = theFan.getForce(fanPt, fanInfo.coords.toLocal().times(retObj.getNormals()[pt]));
+      	Vec3 forceVector = A;
+     	
+        double magnitude = forceVector.length();
+        
+        forceVector = fanInfo.getCoords().getUpDirection().times(magnitude);
+        Vec3 windDelta = theFan.getWindDelta();
+        
+        Vec3 D = new Vec3(windDelta.x + forceVector.x, windDelta.y + forceVector.y, windDelta.z + forceVector.z);
+        F = F.plus(D);
+      	
+      }
+      
+      boolean fixed_node = true;
+
+      for(Spring curSpring: curMass.getSprings()) {
+        if(!retObj.getPinnedVertices()[pt]) {
+          Vec3 q;
+          if(curSpring.getMassA()!=curMass) {
+            q = curSpring.getMassA().getPosition();
+          }
+          else{
+            q = curSpring.getMassB().getPosition();
+
+          }
+          Vec3 d = q.minus(p);
+          double x = d.length();
+          Vec3 normalizeD = new Vec3(d);
+          normalizeD.normalize();
+          F = F.plus(normalizeD.times(-k * (curSpring.getRestLength() - x)));
+          fixed_node = false;
+        }
+      }
+
+
+      if (fixed_node) {
+        F.set(0.0, 0.0, 0.0);
+      }
+
+      // Acceleration due to force
+      Vec3 a = F.times(1.0/m);
+
+      // Displacement
+      Vec3 s = u.times(t).plus(a.times(0.5*t*t));
+
+      // final velocity
+      Vec3 v = u.plus(a.times(t));
+
+      // Constrain the absolute value of the displacement per step
+      double clamp_value = 0.0045;
+      s = clamp(s, clamp_value);
+      Vec3 ps = p.plus(s);
+
+      P[pt].x = ps.x;
+      P[pt].y = ps.y;
+      P[pt].z = ps.z;
+      W[pt] = m;
+      V[pt] = v;
+
+      // maximal location the vector can move to this simulation frame
+      Vec3 maxPoint = P[pt].minus(prevSF.M.getMasses()[pt].getPosition());
+      maxPoint.normalize();
+      maxPoint = maxPoint.times(collision_distance).plus(P[pt]);     
+
+      Vec3 prev = prevSF.M.getTriangleMesh().getVertexPositions()[pt];
+
+      newvert[pt] = new Vec3( ps.x, ps.y, ps.z);
+    }
+    
+    // Adjust newverts for collisions
+    {
+    	Collection<ObjectInfo> candidates = CD.findCandidateObjects(info, retObj.getBounds(), time/ClothSimEditorWindow.subFrames, collision_distance, 1.0/(fps/ClothSimEditorWindow.subFrames));
+    	
+    	Vector<Integer> colVerts = new Vector<Integer>();
+    	for(ObjectInfo candidate : candidates) {
+    		if(candidate.getObject().canConvertToTriangleMesh() > 0) {
+    			double TOL = 0.1;
+    			TriangleMesh candMesh = candidate.getObject().convertToTriangleMesh(TOL);
+    			Face[] candFaces = candMesh.getFaces();
+    			Face[] faces = retObj.getTriangleMesh().getFaces();
+    			for(Face f : faces){
+    				Triangle A = CD.convertFaceToTriangle(retObj.getTriangleMesh(), f, fromLocal);
+    				for(Face cf : candFaces) {   					
+    					Triangle B = CD.convertFaceToTriangle(retObj.getTriangleMesh(), f, candidate.getCoords().fromLocal());
+    					CollisionDetector.Compute_collision_point_return ccpr = CD.compute_collision_point(A, B, false, false);
+    					if(ccpr.dist < Double.MAX_VALUE) {
+    						if(!colVerts.contains(f.v1)) {
+    							colVerts.add(f.v1);
+    						}
+    						if(!colVerts.contains(f.v2)) {
+    							colVerts.add(f.v2);
+    						}
+    						if(!colVerts.contains(f.v3)) {
+    							colVerts.add(f.v3);
+    						}
+    					}
+    				}
+    			}
+    		}
+    	}
+    	
+    	for(int pt = 0; pt < retObj.getMasses().length; pt++) {
+    		Vec3 ps = prevSF.M.getMasses()[pt].getPosition();
+    		if(colVerts.contains(pt)) {
+        	P[pt].x = ps.x;
+        	P[pt].y = ps.y;
+        	P[pt].z = ps.z;
+        	V[pt] = V[pt].times(0.0);
+        	newvert[pt] = new Vec3( ps.x, ps.y, ps.z);    			
+    		}
+    		
+        if(selfCollision) {
+          boolean isSelfCollision = CD.detectSelfCollision(prevSF.M, pt, pointRadius);
+          if(isSelfCollision) {
+            ps.x = prevSF.M.getMasses()[pt].getPosition().x;
+            ps.y = prevSF.M.getMasses()[pt].getPosition().y;
+            ps.z = prevSF.M.getMasses()[pt].getPosition().z;
+            double moveDist = pointRadius/10000.0; 
+            ps.z += moveDist;
+
+            P[pt].x = ps.x;
+            P[pt].y = ps.y;
+            P[pt].z = ps.z;
+            V[pt] = V[pt].times(0.0);
+            newvert[pt] = new Vec3( ps.x, ps.y, ps.z);
+          }
+        }
+        
+        if(floorCollision) {
+          if(P[pt].y < 0.0) {
+            ps.y = collision_distance;
+            P[pt].y = ps.y;
+            newvert[pt].y = ps.y;
+          }
+        }
+    	}
+
+    }
+    
+
+    for(int n = 0; n < newvert.length; n++) {
+      newvert[n] = toLocal.times(newvert[n]);
+    }
+
+    retObj.setVertexPositions(newvert);
+
+    save_mesh(frame, retObj);
+
+    return retObj;
+  }
+  
   /**
    * Stores the mesh so that it can be recalled later.
    * @param frame

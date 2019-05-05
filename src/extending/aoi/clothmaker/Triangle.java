@@ -45,7 +45,14 @@ public class Triangle {
     this.setNormal();
   }
 
-  /**
+  public Triangle(Triangle a) {
+		this.p0 = a.p0;
+		this.p1 = a.p1;
+		this.p2 = a.p2;
+		this.setNormal();
+	}
+
+	/**
    * Find the Normal of the Triangle
    */
   private void setNormal() {
