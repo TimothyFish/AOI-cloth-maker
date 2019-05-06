@@ -1046,7 +1046,7 @@ public class CollisionDetector {
 			tmp = isect_line_segment_tri_v3(AVecs[i], AVecs[next_ind(i)], b);
 			if (tmp.values_set) {
 				double t = tmp.r_lambda;
-				double s = 1.0f - t;
+				double s = 1.0 - t;
 				isect_a = new Vec3( 
 						s * AVecs[i].x + t * AVecs[next_ind(i)].x, 
 						s * AVecs[i].y + t * AVecs[next_ind(i)].y, 
@@ -1269,7 +1269,7 @@ public class CollisionDetector {
 		}
 		else {
 			ret.r_vec = ret.r_b.minus(ret.r_a);
-			dist = 0.0f;
+			dist = 0.0;
 		}
 
 		if (culling && use_normal) {
@@ -1610,9 +1610,9 @@ public class CollisionDetector {
 
 		Vec3 p = new Vec3();
 		Vec3 s = new Vec3();
-		Vec3 d = new Vec3(p2);
-		Vec3 e1 = new Vec3(V.getP1());
-		Vec3 e2 = new Vec3(V.getP2());
+		Vec3 d = new Vec3();
+		Vec3 e1 = new Vec3();
+		Vec3 e2 = new Vec3();
 		Vec3 q = new Vec3();
 		double a, f, u, v;
 
@@ -1623,16 +1623,16 @@ public class CollisionDetector {
 		p = d.cross(e2);
 
 		a = e1.dot(p);
-		if (a == 0.0f) {
+		if (a == 0.0) {
 			ret.values_set = false;
 			return ret;
 		}
-		f = 1.0f / a;
+		f = 1.0 / a;
 
 		s = p1.minus(V.getP0());
 
 		u = f * s.dot(p);
-		if ((u < 0.0f) || (u > 1.0f)) {
+		if ((u < 0.0f) || (u > 1.0)) {
 			ret.values_set = false;
 			return ret;
 		}
@@ -1640,13 +1640,13 @@ public class CollisionDetector {
 		q = s.cross(e1);
 
 		v = f * d.dot(q);
-		if ((v < 0.0f) || ((u + v) > 1.0f)) {
+		if ((v < 0.0f) || ((u + v) > 1.0)) {
 			ret.values_set = false;
 			return ret;
 		}
 
 		ret.r_lambda = f * e2.dot(q);
-		if ((ret.r_lambda < 0.0f) || (ret.r_lambda > 1.0f)) {
+		if ((ret.r_lambda < 0.0) || (ret.r_lambda > 1.0)) {
 			ret.values_set = false;
 			return ret;
 		}

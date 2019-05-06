@@ -412,6 +412,7 @@ public class ClothDistortion extends Distortion {
     }
 
     Vec3 newvert[] = new Vec3[POINTS_TOTAL];
+    Vec3 oldvert[] = new Vec3[POINTS_TOTAL];
 
     Vec3 g; // gravity
     switch(gravityAxis) {
@@ -505,6 +506,8 @@ public class ClothDistortion extends Distortion {
       double clamp_value = 0.0045;
       s = clamp(s, clamp_value);
       Vec3 ps = p.plus(s);
+      
+      oldvert[pt] = new Vec3( P[pt].x, P[pt].y, P[pt].z);
 
       P[pt].x = ps.x;
       P[pt].y = ps.y;
@@ -517,8 +520,6 @@ public class ClothDistortion extends Distortion {
       maxPoint.normalize();
       maxPoint = maxPoint.times(collision_distance).plus(P[pt]);     
 
-      Vec3 prev = prevSF.M.getTriangleMesh().getVertexPositions()[pt];
-
       newvert[pt] = new Vec3( ps.x, ps.y, ps.z);
     }
     
@@ -527,6 +528,7 @@ public class ClothDistortion extends Distortion {
     	Collection<ObjectInfo> candidates = CD.findCandidateObjects(info, retObj.getBounds(), time/ClothSimEditorWindow.subFrames, collision_distance, 1.0/(fps/ClothSimEditorWindow.subFrames));
     	
     	Vector<Integer> colVerts = new Vector<Integer>();
+    	Vector<Vec3> colVecs = new Vector<Vec3>();
     	for(ObjectInfo candidate : candidates) {
     		if(candidate.getObject().canConvertToTriangleMesh() > 0) {
     			double TOL = 0.1;
@@ -536,9 +538,10 @@ public class ClothDistortion extends Distortion {
     			for(Face f : faces){
     				Triangle A = CD.convertFaceToTriangle(retObj.getTriangleMesh(), f, fromLocal);
     				for(Face cf : candFaces) {   					
-    					Triangle B = CD.convertFaceToTriangle(retObj.getTriangleMesh(), f, candidate.getCoords().fromLocal());
+    					Triangle B = CD.convertFaceToTriangle(candMesh, cf, candidate.getCoords().fromLocal());
     					CollisionDetector.Compute_collision_point_return ccpr = CD.compute_collision_point(A, B, false, false);
-    					if(ccpr.dist < Double.MAX_VALUE) {
+    					System.out.println("ccpr.dist = "+ccpr.dist);
+    					if(ccpr.dist < collision_distance) {
     						if(!colVerts.contains(f.v1)) {
     							colVerts.add(f.v1);
     						}
@@ -548,44 +551,38 @@ public class ClothDistortion extends Distortion {
     						if(!colVerts.contains(f.v3)) {
     							colVerts.add(f.v3);
     						}
+    						colVecs.add(ccpr.r_vec);
     					}
     				}
     			}
     		}
     	}
     	
-    	for(int pt = 0; pt < retObj.getMasses().length; pt++) {
-    		Vec3 ps = prevSF.M.getMasses()[pt].getPosition();
+    	for(int pt = 0; pt < retObj.getMasses().length; pt++) {    		
     		if(colVerts.contains(pt)) {
-        	P[pt].x = ps.x;
-        	P[pt].y = ps.y;
-        	P[pt].z = ps.z;
-        	V[pt] = V[pt].times(0.0);
-        	newvert[pt] = new Vec3( ps.x, ps.y, ps.z);    			
+        	for(Vec3 thevec : colVecs) {
+        		if(thevec.distance(newvert[pt]) < 0.1){
+        			newvert[pt] = new Vec3( oldvert[pt].x, oldvert[pt].y, oldvert[pt].z);
+        			break;
+        		}
+        	}
     		}
     		
         if(selfCollision) {
           boolean isSelfCollision = CD.detectSelfCollision(prevSF.M, pt, pointRadius);
           if(isSelfCollision) {
-            ps.x = prevSF.M.getMasses()[pt].getPosition().x;
-            ps.y = prevSF.M.getMasses()[pt].getPosition().y;
-            ps.z = prevSF.M.getMasses()[pt].getPosition().z;
+          	newvert[pt] = new Vec3( oldvert[pt].x, oldvert[pt].y, oldvert[pt].z);
+            Vec3 ps = new Vec3( oldvert[pt].x, oldvert[pt].y, oldvert[pt].z);					
             double moveDist = pointRadius/10000.0; 
             ps.z += moveDist;
-
-            P[pt].x = ps.x;
-            P[pt].y = ps.y;
-            P[pt].z = ps.z;
-            V[pt] = V[pt].times(0.0);
+//            V[pt] = V[pt].times(0.0);
             newvert[pt] = new Vec3( ps.x, ps.y, ps.z);
           }
         }
         
         if(floorCollision) {
-          if(P[pt].y < 0.0) {
-            ps.y = collision_distance;
-            P[pt].y = ps.y;
-            newvert[pt].y = ps.y;
+          if(newvert[pt].y < collision_distance) {
+            newvert[pt].y = collision_distance;
           }
         }
     	}
