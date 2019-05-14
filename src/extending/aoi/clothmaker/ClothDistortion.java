@@ -1,5 +1,5 @@
 /**
-    Cloth Maker Plugin from Chapter 10 of the book "Extending Art of Illusion: Scripting 3D Scene Creation"
+    Cloth Maker Plugin from Chapter 10 of the book "Extending Art of Illusion: Scripting for 3D Artists"
     Copyright (C) 2019, 2011  Timothy Fish
 
     This program is free software: you can redistribute it and/or modify
@@ -182,10 +182,11 @@ public class ClothDistortion extends Distortion {
 
     Cloth retObj = (Cloth) obj.duplicate();
     Vec3 positions[] = retObj.getVertexPositions().clone();
+    
+    
     for(int n = 0; n < positions.length; n++) {
       positions[n] = fromLocal.times(positions[n]);  
     }
-
     retObj.setVertexPositions(positions);
 
     SimFrame prevSF = load_prev_mesh(frame);
@@ -270,13 +271,13 @@ public class ClothDistortion extends Distortion {
           }
           else{
             q = curSpring.getMassB().getPosition();
-
           }
           Vec3 d = q.minus(p);
           double x = d.length();
           Vec3 normalizeD = new Vec3(d);
           normalizeD.normalize();
           F = F.plus(normalizeD.times(-k * (curSpring.getRestLength() - x)));
+
           fixed_node = false;
         }
       }
@@ -446,6 +447,11 @@ public class ClothDistortion extends Distortion {
     ret.x = (ret.x < -clampValue)?-clampValue:ret.x;
     ret.y = (ret.y < -clampValue)?-clampValue:ret.y;
     ret.z = (ret.z < -clampValue)?-clampValue:ret.z;
+    
+    double nearlyzero = 1.0E-10;
+		ret.x = (Math.abs(ret.x)<nearlyzero )?0.0:ret.x;
+		ret.y = (Math.abs(ret.y)<nearlyzero )?0.0:ret.y;
+		ret.z = (Math.abs(ret.z)<nearlyzero )?0.0:ret.z;
 
     return ret;
   }
