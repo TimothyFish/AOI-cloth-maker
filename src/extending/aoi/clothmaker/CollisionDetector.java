@@ -1,7 +1,8 @@
 /**
     Cloth Maker Plugin from Chapter 10 of the book "Extending Art of Illusion: Scripting for 3D Artists"
     Copyright (C) 2019, 2011  Timothy Fish
-
+    Changes copyright (C) 2019 by Maksim Khramov
+    
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
@@ -78,7 +79,7 @@ public class CollisionDetector {
 	 * returns true if the object is a special object, like a camera,
 	 * a light, or a null object.
 	 */
-	public boolean isSpecial(Object obj) {
+	public static boolean isSpecial(Object obj) {
 		boolean ret = false;
 
 		if((obj instanceof ObjectInfo)) {

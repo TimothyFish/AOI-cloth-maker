@@ -1,6 +1,7 @@
 /**
     Cloth Maker Plugin from Chapter 10 of the book "Extending Art of Illusion: Scripting for 3D Artists"
     Copyright (C) 2019, 2011  Timothy Fish
+    Changes copyright (C) 2019 by Maksim Khramov
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -28,12 +29,17 @@ import artofillusion.object.Object3D;
 import artofillusion.object.ObjectInfo;
 import artofillusion.ui.ComponentsDialog;
 import artofillusion.ui.EditingWindow;
-import artofillusion.ui.ToolPalette;
 import artofillusion.ui.Translate;
 import artofillusion.ui.ValueField;
+import buoy.event.CommandEvent;
 import buoy.widget.BMenu;
 import buoy.widget.BMenuItem;
 import buoy.widget.Widget;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 
 /**
@@ -44,7 +50,7 @@ import buoy.widget.Widget;
  * @author Timothy Fish
  *
  */
-public class ClothMakerPlugin implements Plugin {
+public class ClothMakerPlugin implements Plugin, Runnable {
   public static final double DEFAULT_MESH_TOLERANCE = 0.1;
   public static final double DEFAULT_MASS_DISTANCE = 0.2;
   public static final double DEFAULT_SPRING_CONST = 7.1;
@@ -62,9 +68,7 @@ public class ClothMakerPlugin implements Plugin {
   public static final boolean DEFAULT_FLOOR_COLLISION = false;
   public static final double DEFAULT_WIND_MAGNITUDE = 0.02;
   public static final int DEFAULT_SUBFRAMES = 4;
-  private LayoutWindow layout;
-  private ToolPalette toolPalette;
-  private CreateFanTool theFanTool;
+  
   private double meshTolerance;
   private double massDistance;
   private double springConstant;
@@ -72,65 +76,88 @@ public class ClothMakerPlugin implements Plugin {
   private double collisionDistance;
   private int triMeshCounter;
 
+  private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+  private final Map<LayoutWindow, ClothMenuItemActivator> mapLayoutToActivator = new HashMap<>();
   /**
    * Constructor
    */
   public ClothMakerPlugin() {
-    layout = null;
+    
     meshTolerance = DEFAULT_MESH_TOLERANCE;
     massDistance = DEFAULT_MASS_DISTANCE;
     springConstant = DEFAULT_SPRING_CONST;
     dampingConstant = DEFAULT_DAMPING_CONST;
     collisionDistance = DEFAULT_COLLISION_DISTANCE;
     triMeshCounter = 1;
+    init();
+  }
+
+  private void init() {
+      scheduler.scheduleAtFixedRate(this, 0, 250, TimeUnit.MILLISECONDS);
   }
 
   @Override
   public void processMessage(int message, Object[] args) {
+    LayoutWindow layout;
+    
     switch (message) {
-    case Plugin.SCENE_WINDOW_CREATED:
-      layout = (LayoutWindow) args[0];
-      toolPalette = layout.getToolPalette();
-      theFanTool = new CreateFanTool(layout);
+    case Plugin.SCENE_WINDOW_CLOSING:
+        layout = (LayoutWindow) args[0];
+        synchronized(mapLayoutToActivator) {
+            mapLayoutToActivator.remove(layout);
+        }
+        break;
 
+    case Plugin.SCENE_WINDOW_CREATED:
+
+      layout = (LayoutWindow) args[0];
       // Add the Fan button to the Tool Palette
-      toolPalette.addTool(theFanTool);
+      layout.getToolPalette().addTool( new CreateFanTool(layout));
 
       BMenu objectMenu = layout.getObjectMenu();
       // Add menu item to the Object menu
       // Locate position after "Convert To Actor..."
-      int posConvertToActor = 0; 
-      for(int i = 0; i < objectMenu.getChildCount(); i++){
-        BMenuItem menuIter = null;
-        menuIter = (BMenuItem) objectMenu.getChild(i);
-        if(menuIter.getText().equalsIgnoreCase("Convert To Actor...")){
-          posConvertToActor = i;
-          break;
-        }
+      int posConvertToActor = 0;
+      String actorMenuItemName = Translate.text("menu.convertToActor");
+
+      for(posConvertToActor = 0; posConvertToActor < objectMenu.getChildCount(); posConvertToActor++) {
+
+        String menuItemText = ((BMenuItem) objectMenu.getChild(posConvertToActor)).getText();
+        if(menuItemText.equalsIgnoreCase(actorMenuItemName)) break;
       }
+
       posConvertToActor++; // select position after Convert To Actor or top if not found
 
 
       BMenuItem menuItem1 = Translate.menuItem("Convert to Cloth...", this, "convertToClothMenuAction");
+      menuItem1.getComponent().putClientProperty("layout", layout);
       objectMenu.add(menuItem1, posConvertToActor);
 
       BMenuItem menuItem2 = Translate.menuItem("Generate Cloth Simulation...", this, "generateClothSimulationMenuAction");
+      menuItem2.getComponent().putClientProperty("layout", layout);
       objectMenu.add(menuItem2, posConvertToActor+1);
       
       BMenuItem menuItem3 = Translate.menuItem("Duplicate Cloth as TriangleMesh", this, "dupClothTriMeshMenuAction");
+      menuItem3.getComponent().putClientProperty("layout", layout);
       objectMenu.add(menuItem3, posConvertToActor+2);
 
-      new ClothMenuItemActivator(layout, menuItem1, menuItem2, menuItem3).start();
+      synchronized(mapLayoutToActivator) {
+          mapLayoutToActivator.put(layout, new ClothMenuItemActivator(layout, menuItem1, menuItem2, menuItem3));
+      }
+      
     }
 
   }
 
 
   @SuppressWarnings("unused")
-  private void convertToClothMenuAction(){
+  private void convertToClothMenuAction(CommandEvent event){
+    BMenuItem mi = (BMenuItem)event.getWidget();
+    LayoutWindow layout = (LayoutWindow)mi.getComponent().getClientProperty("layout");
+
     Collection<ObjectInfo> sel = layout.getSelectedObjects();
     Object3D obj;
-    Object3D mesh = null;
+    
     ObjectInfo info;
 
     if (sel.size() != 1)
@@ -171,15 +198,15 @@ public class ClothMakerPlugin implements Plugin {
 
   }
   
-	@SuppressWarnings("unused")
-  private void generateClothSimulationMenuAction(){
+  @SuppressWarnings("unused")
+  private void generateClothSimulationMenuAction(CommandEvent event){
+    BMenuItem mi = (BMenuItem)event.getWidget();
+    LayoutWindow layout = (LayoutWindow)mi.getComponent().getClientProperty("layout");
     Collection<ObjectInfo> sel = layout.getSelectedObjects();
-    Object3D mesh = null;
-    ObjectInfo info;
-
+    
     if (sel.size() != 1)
       return;
-    info = (ObjectInfo) sel.toArray()[0];
+    ObjectInfo info = (ObjectInfo)sel.toArray()[0];
     if (info.getObject() instanceof Cloth) {
       Cloth obj = (Cloth)info.getObject();
       if(obj.getEditor() == null) {
@@ -192,9 +219,9 @@ public class ClothMakerPlugin implements Plugin {
   }
   
   @SuppressWarnings("unused")
-  private void dupClothTriMeshMenuAction() {
-		
-		
+  private void dupClothTriMeshMenuAction(CommandEvent event) {
+    BMenuItem mi = (BMenuItem)event.getWidget();
+    LayoutWindow layout = (LayoutWindow)mi.getComponent().getClientProperty("layout");
     Collection<ObjectInfo> sel = layout.getSelectedObjects();
     ObjectInfo info;
 
@@ -223,5 +250,12 @@ public class ClothMakerPlugin implements Plugin {
       layout.updateMenus();
     }
   }
+
+    @Override
+    public void run() {
+        for(ClothMenuItemActivator item: mapLayoutToActivator.values()) {
+            item.run();
+        }
+    }
 
 }

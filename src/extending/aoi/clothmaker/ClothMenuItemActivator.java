@@ -1,6 +1,7 @@
 /**
     Cloth Maker Plugin from Chapter 10 of the book "Extending Art of Illusion: Scripting for 3D Artists"
     Copyright (C) 2019, 2011  Timothy Fish
+    Changes copyright (C) 2019 by Maksim Khramov
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -28,14 +29,13 @@ import buoy.widget.BMenuItem;
  * @author Timothy Fish
  *
  */
-public class ClothMenuItemActivator extends Thread {
+public class ClothMenuItemActivator implements Runnable {
 
-  private BMenuItem theConvertMenuItem;
-  private BMenuItem theCopyToTriMenuItem;
-  private BMenuItem theGenerateMenuItem;
-  private LayoutWindow theLayout;
-  private CollisionDetector theCollisionDetector;
-  private static final long inverseRefreshRate = 250; // refresh menuItem every quarter-second
+  private final BMenuItem theConvertMenuItem;
+  private final BMenuItem theCopyToTriMenuItem;
+  private final BMenuItem theGenerateMenuItem;
+  private final LayoutWindow theLayout;
+
 
   /**
    * Constructor
@@ -51,7 +51,6 @@ public class ClothMenuItemActivator extends Thread {
     theCopyToTriMenuItem = copyToTriMenuItem;
     theGenerateMenuItem = generateMenuItem;
     theLayout = layout;
-    theCollisionDetector = new CollisionDetector(layout.getScene());
 
     theConvertMenuItem.setEnabled(false);
     theCopyToTriMenuItem.setEnabled(false);
@@ -63,47 +62,12 @@ public class ClothMenuItemActivator extends Thread {
    */
   @Override
   public void run() {
-    while((theConvertMenuItem != null || theCopyToTriMenuItem != null || 
-    		theGenerateMenuItem != null) && theLayout != null){ // do while menu item exists
-      // Check for object selection
-      if(theGenerateMenuItem != null) {
-        if(oneClothObjectSelected()){
-          theGenerateMenuItem.setEnabled(true);
-        }
-        else {
-          theGenerateMenuItem.setEnabled(false);        
-        }
 
-      }
-      
-      if(theCopyToTriMenuItem != null) {
-      	if(oneClothObjectSelected()) {
-      		theCopyToTriMenuItem.setEnabled(true);
-      	}
-      	else {
-      		theCopyToTriMenuItem.setEnabled(false);
-      	}
-      }
+    boolean singleClothObjectSelected = oneClothObjectSelected();
+    theGenerateMenuItem.setEnabled(singleClothObjectSelected);
+    theCopyToTriMenuItem.setEnabled(singleClothObjectSelected);
 
-      if(theConvertMenuItem != null) {
-        if(oneNonClothObjectSelected()) {
-          theConvertMenuItem.setEnabled(true);
-        }
-        else{
-          theConvertMenuItem.setEnabled(false);
-        }        
-      }
-
-      try {
-        // Sleep most of the time so processor can do other things
-        // Updating every quarter-second is more than sufficient since
-        // the user can't select the menu item that quickly after object selection.
-        Thread.sleep(inverseRefreshRate );
-      } catch (InterruptedException e) {
-        // This should never happen.
-        e.printStackTrace();
-      }
-    }    
+    theConvertMenuItem.setEnabled(oneNonClothObjectSelected());
   }
 
   /**
@@ -111,18 +75,12 @@ public class ClothMenuItemActivator extends Thread {
    * @return
    */
   private boolean oneNonClothObjectSelected() {
-    int numSelected = theLayout.getSelectedObjects().size();
-    if(numSelected == 1) {
-      ObjectInfo ref = (ObjectInfo)theLayout.getSelectedObjects().toArray()[0];
-      if(theCollisionDetector.isSpecial(ref) || (ref.getObject() instanceof Cloth)){
-        return false;  
-      }
-      else {
-        return true;
-      }
-    }
+    ObjectInfo[] selection = theLayout.getSelectedObjects().toArray(new ObjectInfo[0]);
+    if(selection.length != 1) return false;
 
-    return false;
+    ObjectInfo ref = selection[0];
+    return !(CollisionDetector.isSpecial(ref) || (ref.getObject() instanceof Cloth));
+    
   }
 
   /**
@@ -130,15 +88,10 @@ public class ClothMenuItemActivator extends Thread {
    * @return
    */
   private boolean oneClothObjectSelected() {
-    int numSelected = theLayout.getSelectedObjects().size();
-    if(numSelected == 1) {
-      ObjectInfo ref = (ObjectInfo)theLayout.getSelectedObjects().toArray()[0];
-      if(ref.getObject() instanceof Cloth){
-        return true;  
-      }
-    }
+    ObjectInfo[] selection = theLayout.getSelectedObjects().toArray(new ObjectInfo[0]);
+    if(selection.length != 1) return false;
 
-    return false;
+    return selection[0].getObject() instanceof Cloth;
   }
 
 }
